@@ -28,6 +28,10 @@ Durante el trabajo:
   semánticas de búsqueda que no estén observados.
 - No convertir errores de captura/parser en respuestas vacías o resultados
   aparentemente válidos.
+- No implementar todas las opciones del menú legado como funciones de la web:
+  solo se exponen las tres consultas indicadas en `docs/CONTRATO.md`.
+- No usar la opción 3 (ordenar), ni asumir que el número de registro equivale
+  al orden de grabación, sin verificarlo y acordarlo con el grupo.
 - Mantener la exclusión mutua al usar una misma sesión DOSBox.
 - Rechazar entradas inválidas con un mensaje; no borrar caracteres
   silenciosamente.
@@ -113,9 +117,11 @@ docs/CONTRATO.md: [módulos/archivos].
 Busca incompatibilidades entre contrato, web, wrapper, parser y mock;
 especialmente: respuesta vacía frente a error OCR, orden de resultados de
 cinta, lectura de todas las páginas, concurrencia sobre DOSBox, entradas que
-puedan modificar datos y uso accidental de caché o archivos DAT. No hagas
-cambios de interfaz de forma unilateral. Informa hallazgos concretos,
-pruebas que los demuestren y correcciones mínimas sugeridas.
+puedan modificar datos y uso accidental de caché o archivos DAT. Comprueba
+también que la web solo exponga las tres funcionalidades de la práctica y que
+el orden de cinta no se haya supuesto sin evidencia. No hagas cambios de
+interfaz de forma unilateral. Informa hallazgos concretos, pruebas que los
+demuestren y correcciones mínimas sugeridas.
 ```
 
 ## Cambios al contrato

@@ -30,6 +30,28 @@ La lectura de todos los registros para una consulta de cinta debe hacerse
 mediante la interfaz del legado. El wrapper filtra los registros obtenidos;
 no consulta directamente los ficheros de datos.
 
+### Alcance del menú legado
+
+La aplicación presenta ocho opciones. La práctica pide exponer las tres
+consultas anteriores en la web, no reproducir todas las funciones del menú:
+
+| Opción | Operación del menú | Alcance de esta práctica |
+| --- | --- | --- |
+| 1 | Introducir datos | No exponer; podría añadir o alterar datos |
+| 2 | Grabar datos | No exponer; escribe datos |
+| 3 | Ordenar datos | No exponer como función web. Solo considerar como paso interno si la consulta lo necesita y el grupo verifica que es seguro |
+| 4 | Información base de datos | Usar internamente para consultar el contador |
+| 5 | Imprimir datos según orden | No exponer; está orientado a imprimir, no a la respuesta web |
+| 6 | Listar datos según orden | Usar internamente para obtener filas; procesar todas las páginas necesarias |
+| 7 | Buscar datos | Usar internamente para buscar por nombre |
+| 8 | Acabar | No es consulta; solo usar al cerrar DOSBox de forma controlada |
+
+Por tanto, las opciones 1, 2, 3, 5 y 8 no son funcionalidades que el usuario
+deba poder invocar desde la web. El wrapper puede navegar por las opciones 4,
+6 y 7 para cumplir los requisitos. La opción 3 queda expresamente fuera del
+flujo hasta que se pruebe si es necesaria para respetar el orden pedido y qué
+efectos tiene.
+
 ## 3. Lo que se ha comprobado en el ZIP
 
 La distribución adjunta contiene `DATABASE.BAS`, `DATOS.DAT`, `INFORM.DAT`,
@@ -98,11 +120,11 @@ Reglas del modelo y resultados:
   resultados.
 - `listarPorCinta("45")` busca el identificador individual `45`, no una
   subcadena. Por tanto, la cinta `1` no coincide con la cinta `10`.
-- `listarPorCinta` devuelve los resultados en orden ascendente de
-  `numeroRegistro`, que representa el orden de registro/antigüedad indicado
-  por la práctica. El wrapper extrae los registros del legado y aplica ese
-  orden de forma explícita, sin depender del orden de visualización que
-  estuviera seleccionado previamente.
+- `listarPorCinta` debe conservar el orden que corresponda al orden de
+  grabación indicado por la práctica. Todavía no está demostrado que ese orden
+  sea igual al número de registro, al orden actual del listado ni al orden
+  alfabético por cinta. No ordenar por `numeroRegistro` ni invocar la opción 3
+  hasta que la caracterización de la sección 9 confirme el procedimiento.
 - El parámetro de cinta es un identificador individual (`A`–`Z` o uno o más
   dígitos), no el campo compuesto `A-45`.
 - No se fija todavía si la búsqueda por nombre es exacta o parcial, ni si
@@ -171,9 +193,14 @@ entrada según las reglas acordadas y explica cómo corregirla.
   `LegacyService`.
 - Obtener el contador desde la opción de información del legado.
 - Ejecutar la búsqueda por nombre sin confirmar modificaciones.
+- Usar las opciones de consulta 4, 6 y 7. No exponer en la web el resto de las
+  operaciones del menú.
 - Leer todas las páginas del listado cuando la operación requiera todos los
   registros; convertir el campo de cinta en identificadores y filtrar la cinta
   solicitada.
+- Establecer y documentar cómo se garantiza el orden de grabación solicitado.
+  No asumir que coincide con el número de registro ni cambiar el orden del
+  legado con la opción 3 sin verificarlo.
 - Serializar el acceso a una única sesión DOSBox.
 - Fallar explícitamente si no puede recuperar el menú o determinar el fin de
   una consulta.
@@ -267,6 +294,8 @@ punto:
 | Número de resultados que puede devolver la búsqueda por nombre | Pendiente de ejecución |
 | Formato de filas y posición del número de registro en pantalla | Pendiente de ejecución |
 | Texto fiable de la última página del listado | Pendiente de ejecución |
+| Qué significa concretamente “orden en que se encuentran grabados” y cómo lo produce la opción 6 | Pendiente de ejecución y contraste con la guía |
+| Si hace falta la opción 3 para obtener ese orden, y si usarla altera estado persistente | Pendiente de ejecución; no invocar hasta comprobarlo |
 | Texto y secuencia de teclas del caso sin resultados | Mensaje localizado en BASIC; confirmar pantalla |
 | Formato permitido de cinta y espacios/guiones en la salida | Ejemplos en ZIP; confirmar pantallas |
 | Tiempo máximo razonable por operación y estrategia de recuperación | Pendiente de prueba |
@@ -281,7 +310,8 @@ deben resolver antes de cerrar la integración real.
 - La búsqueda sin coincidencias devuelve `items: []`; una pantalla ilegible
   produce error.
 - La consulta de cinta compara identificadores completos y conserva el orden
-  ascendente de número de registro.
+  de grabación una vez verificado su mecanismo; no presupone que sea el número
+  de registro.
 - Se leen todas las páginas necesarias del listado.
 - Solicitudes simultáneas no mezclan entradas ni capturas.
 - Ninguna consulta acepta o graba cambios en los datos.
