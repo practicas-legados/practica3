@@ -227,7 +227,8 @@ entrada según las reglas acordadas y explica cómo corregirla.
 
 ### Integración conjunta
 
-- A y B acuerdan interfaces internas antes de implementarlas en paralelo.
+- A y B deben acordar la interfaz de pantallas antes de implementarla en
+  paralelo. La interfaz recomendada se define en la sección 7.
 - Los tres integrantes usan este documento como contrato común.
 - Si se propone cambiar una interfaz o regla, avisar al grupo primero y
   actualizar contrato, mock y pruebas en el mismo cambio coordinado.
@@ -251,11 +252,85 @@ entrada según las reglas acordadas y explica cómo corregirla.
 - Si el estado final es desconocido, marcar la sesión como fallida y
   reiniciarla o recuperarla antes de aceptar otra petición.
 
+### 7.1. Interfaz entre Persona A y Persona B
+
+La coordinación de DOSBox y la interpretación de pantallas son
+responsabilidades separadas:
+
+- Persona A controla la sesión, el estado, las teclas, los tiempos de espera,
+  la exclusión mutua y la recuperación del menú.
+- Persona B captura/interpreta las pantallas y devuelve resultados tipados o
+  un error explícito de lectura.
+
+La interfaz recomendada combina lectores especializados con resultados
+tipados:
+
+```java
+interface LegacyScreenReader {
+    MenuState readMenu(ScreenCapture capture)
+        throws ScreenReadException;
+
+    CountScreen readCount(ScreenCapture capture)
+        throws ScreenReadException;
+
+    ListPage readListPage(ScreenCapture capture)
+        throws ScreenReadException;
+
+    SearchScreen readSearch(ScreenCapture capture)
+        throws ScreenReadException;
+}
+
+record CountScreen(int count) {}
+
+record ListPage(List<LegacyRow> rows, boolean continuePrompt) {}
+
+record LegacyRow(
+    int numeroVisible,
+    String nombre,
+    String tipo,
+    List<String> cintas,
+    int numeroRegistro
+) {}
+
+sealed interface SearchScreen
+        permits SearchFound, SearchNotFound {}
+
+record SearchFound(List<LegacyRow> rows) implements SearchScreen {}
+
+record SearchNotFound() implements SearchScreen {}
+```
+
+`ScreenCapture` representa una captura o texto de pantalla producido por la
+sesión; su implementación concreta se acuerda con B. `ScreenReadException`
+indica que la pantalla no se pudo interpretar con fiabilidad.
+
+Reglas obligatorias de la interfaz:
+
+1. Una pantalla ilegible produce `ScreenReadException`, nunca una lista vacía.
+2. `SearchNotFound` solo se devuelve cuando se reconoce el mensaje de ausencia
+   del legado.
+3. `ListPage.rows` contiene únicamente filas completas y reconocidas.
+4. Una fila cortada, ambigua o incompleta produce un error de lectura.
+5. `continuePrompt` indica que se reconoce la instrucción de continuar; no
+   demuestra por sí solo que exista otra página.
+6. A decide cuándo enviar `SPACE` y comprueba después el estado de la sesión.
+7. B conserva el orden de las filas presentado por el legado.
+8. La conversión de `CINTA` (`B-E`) a `List.of("B", "E")` no puede reordenar
+   identificadores.
+9. `numeroRegistro` corresponde al campo `REGISTRO`, sujeto a confirmación
+   mediante muestras parserizadas.
+10. A puede usar un lector falso con estos mismos resultados para probar la
+    coordinación antes de integrar el lector real.
+
+La interfaz no obliga a que las clases pertenezcan a un módulo concreto. El
+grupo debe acordar si se ubican en `contracts/` o en `wrapper/`, sin duplicar
+los tipos.
+
 ## 8. Estructura de trabajo prevista
 
 ```text
 contracts/       Tipos compartidos del servicio y del modelo
-legacy-input/    Entrada/control de DOSBox y coordinación del wrapper (A)
+dosbox-control/  Entrada/control de DOSBox y coordinación de Persona A
 screen-reader/   Captura, OCR, parser y pruebas con muestras (B)
 wrapper/         Fachada de servicio e integración con el legado
 web/             Interfaz web, cliente HTTP y mock (C)
@@ -271,7 +346,7 @@ esta dirección:
 
 ```text
 web -> contrato HTTP -> wrapper -> LegacyService
-                                  |-> legacy-input
+                                  |-> dosbox-control
                                   `-> screen-reader/parser
 ```
 
@@ -280,6 +355,33 @@ trabajar desde el primer día con muestras guardadas. A puede desarrollar la
 coordinación usando un lector/control falso hasta que B entregue los
 componentes reales.
 
+### 8.1. Decisión de nomenclatura para el código de Persona A
+
+El código fuente de Persona A se ubicará en `dosbox-control/`. Este nombre
+identifica que el componente controla la sesión DOSBox, envía teclas, coordina
+las capturas y serializa las consultas.
+
+La separación de módulos será:
+
+- `dosbox-control/`: control de DOSBox, estados de sesión, exclusión mutua y
+  coordinación de las operaciones del legado.
+- `wrapper/`: fachada `LegacyService` e integración con el resto del sistema.
+- `screen-reader/`: captura, OCR, parser y muestras de Persona B.
+
+No se utilizará `legacy/` como nombre del código nuevo, porque ese nombre se
+reserva conceptualmente para la aplicación original. La distribución
+entregada seguirá permaneciendo en `legacy/original/` y no se modificará.
+
+El paquete Java recomendado para el componente de A es:
+
+```java
+package dosbox.control;
+```
+
+La interfaz `LegacyScreenReader` seguirá siendo la frontera compartida con B;
+su ubicación física se acordará al crear los módulos, sin duplicar la
+interfaz.
+
 ## 9. Pendientes de caracterización en DOSBox
 
 Registrar observación, captura de muestra, decisión y responsable para cada
@@ -287,16 +389,16 @@ punto:
 
 | Pregunta | Estado |
 | --- | --- |
-| Secuencia exacta de lanzamiento y menú inicial | Pendiente de ejecución |
-| Teclas y pantallas de las opciones 4, 6 y 7 | Pendiente de ejecución |
-| Forma exacta de volver al menú desde cada consulta | Pendiente de ejecución |
+| Secuencia exacta de lanzamiento y menú inicial | Observada y documentada |
+| Teclas y pantallas de las opciones 4, 6 y 7 | Observadas y documentadas |
+| Forma exacta de volver al menú desde cada consulta | Observada y documentada |
 | Coincidencia por nombre: exacta/parcial y mayúsculas/minúsculas | Pendiente de ejecución |
 | Número de resultados que puede devolver la búsqueda por nombre | Pendiente de ejecución |
 | Formato de filas y posición del número de registro en pantalla | Pendiente de ejecución |
-| Texto fiable de la última página del listado | Pendiente de ejecución |
-| Qué significa concretamente “orden en que se encuentran grabados” y cómo lo produce la opción 6 | Pendiente de ejecución y contraste con la guía |
-| Si hace falta la opción 3 para obtener ese orden, y si usarla altera estado persistente | Pendiente de ejecución; no invocar hasta comprobarlo |
-| Texto y secuencia de teclas del caso sin resultados | Mensaje localizado en BASIC; confirmar pantalla |
+| Texto fiable de la última página del listado | Observado: página parcial 757–764 |
+| Qué significa concretamente “orden en que se encuentran grabados” y cómo lo produce la opción 6 | Acordado: orden original `ANTIGUEDAD` |
+| Si hace falta la opción 3 para obtener ese orden, y si usarla altera estado persistente | Resuelto: no usar; cambia el criterio de ordenación |
+| Texto y secuencia de teclas del caso sin resultados | Observado y documentado |
 | Formato permitido de cinta y espacios/guiones en la salida | Ejemplos en ZIP; confirmar pantallas |
 | Tiempo máximo razonable por operación y estrategia de recuperación | Pendiente de prueba |
 
